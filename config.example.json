@@ -44,6 +44,11 @@
         "name": "Codex (WSL)",
         "type": "codex",
         "path": "/home/joint/.codex"
+      },
+      {
+        "name": "Claude Code",
+        "type": "claude",
+        "path": "/home/joint/.claude"
       }
     ],
     "price": {

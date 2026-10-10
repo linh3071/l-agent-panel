@@ -67,8 +67,8 @@ log "编译启动器（$("$GO" version | awk '{print $3}')）"
 log "组装便携包目录"
 mkdir -p "$DIST/node" "$DIST/server" "$DIST/web"
 cp "$NODE_EXE" "$DIST/node/node.exe"
-cp "$ROOT"/server/*.js "$DIST/server/"
-cp "$ROOT"/web/* "$DIST/web/"
+cp -r "$ROOT"/server/. "$DIST/server/"   # 含 agents/ 子目录
+cp -r "$ROOT"/web/. "$DIST/web/"
 cp "$ROOT/config.example.json" "$ROOT/package.json" "$DIST/"
 [ -f "$ROOT/README.md" ] && cp "$ROOT/README.md" "$DIST/"
 

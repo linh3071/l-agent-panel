@@ -9,6 +9,7 @@ import { join, dirname, basename } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import { configurePrices, ensureFresh, costOf, priceStatus } from './prices.js';
+import { readClaude } from './agents/claude.js';
 
 const DAY_MS = 86_400_000;
 const HEATMAP_DAYS = 365;
@@ -407,8 +408,11 @@ export async function queryUsage(agents, { from, to, groupBy, price, dir }) {
     } else if (type === 'codex') {
       const { records: agentRecords } = await readCodex(agent, errors);
       records.push(...agentRecords);
+    } else if (type === 'claude' || type === 'claude-code') {
+      const { records: agentRecords } = await readClaude(agent, errors);
+      records.push(...agentRecords);
     } else {
-      errors.push({ file: agent.path ?? '', message: `未知的 agent type：${type || '(空)'}` });
+      errors.push({ file: agent.path ?? '', message: `未知的 agent type：${type || '(空)'}（支持 zcode / codex / claude）` });
     }
   }
 

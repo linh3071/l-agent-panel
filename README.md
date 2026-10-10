@@ -88,10 +88,11 @@ desktop/.cache/gobin/rsrc -ico desktop/logo/logo.ico -o desktop/launcher/rsrc_wi
   },
   "usage": {
     "agents": [
-      // type 支持：zcode | codex；name 即统计时的 Agent 名（可随意改）
+      // type 支持：zcode | codex | claude；name 即统计时的 Agent 名（可随意改）
       { "name": "ZCode (Windows)", "type": "zcode", "path": "/mnt/c/Users/joint/.zcode" },
       { "name": "ZCode (WSL)", "type": "zcode", "path": "/home/joint/.zcode" },
-      { "name": "Codex (WSL)", "type": "codex", "path": "/home/joint/.codex" }
+      { "name": "Codex (WSL)", "type": "codex", "path": "/home/joint/.codex" },
+      { "name": "Claude Code", "type": "claude", "path": "/home/joint/.claude" }
     ]
   }
 }
@@ -155,12 +156,18 @@ desktop/.cache/gobin/rsrc -ico desktop/logo/logo.ico -o desktop/launcher/rsrc_wi
 |---|---|
 | `zcode` | `{path}/cli/db/db.sqlite` 的 `model_usage` 表（每请求一条：模型、token 明细、时间戳）。Windows 挂载（/mnt/c）打开失败时自动复制到临时目录再读 |
 | `codex` | `{path}/state_5.sqlite` 的 `threads` 表（会话级兜底）+ `{path}/sessions/**/rollout-*.jsonl` 中的 `token_count` 事件（逐请求明细） |
+| `claude` | `{path}/projects/<项目>/<会话>.jsonl` 中 `type=assistant` 事件的 `message.usage`（逐请求明细），`<会话>/subagents/*.jsonl` 的子代理用量一并统计。`path` 也可直接指向 `projects` 目录 |
 
 说明：
 
 - Codex rollout 文件较大，首次查询会流式扫描（数秒），之后按文件 `(mtime, size)` 内存缓存，改动文件才会重新解析；重启服务后缓存清空
 - ZCode 中 `query_source='session_title'` 的标题生成请求不计入主统计，仅在底部 meta 中显示
 - Codex 会话若 rollout 中没有 `token_count` 事件，则回退使用 `threads.tokens_used` 的会话总量（时间记为最后更新时间，token 明细不可拆分）
+- Claude Code：`usage.input_tokens` 不含缓存读写，面板已换算为统一口径（输入含缓存读）：
+  `input = input_tokens + cache_read`、`total = input + cache_creation + output`；
+  同一 `message.id` 只计一次（sidechain 回放会重复记录同一条响应），
+  `isApiErrorMessage` 与 `<synthetic>` 条目跳过；会话标题取 `summary` 行
+- 会话文件同样按 `(mtime, size)` 缓存，只有新增/修改过的文件才会重新解析
 
 ## API
 

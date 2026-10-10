@@ -33,6 +33,8 @@ const PROVIDER_ALIASES = {
   zhipuai: ['zhipuai', 'zai'],
   zai: ['zhipuai', 'zai'],
   minimax: ['minimax'],
+  anthropic: ['anthropic'],
+  claude: ['anthropic'],
 };
 
 const state = {
