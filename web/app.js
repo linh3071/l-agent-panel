@@ -330,7 +330,7 @@ function renderUsage() {
     {
       label: '预估费用',
       value: price?.available ? fmtCost(totals.cost) : '—',
-      sub: price ? (price.available ? '按 models.dev 价格表估算（USD）' : '价格表不可用') : '未启用价格估算',
+      sub: price ? (price.available ? 'models.dev 单价 × 用量（估算）' : '价格表不可用') : '未启用价格估算',
     },
     { label: '输入', value: fmtTokens(uncachedInput), sub: '未缓存（输入总量 − 缓存读）' },
     { label: '输出', value: fmtTokens(totals.output) },
@@ -469,6 +469,13 @@ function renderPriceLine(price) {
     loadUsage();
   });
   wrap.append(button);
+  // 口径说明：这是预估值，避免与实际账单混淆
+  wrap.append(
+    el('div', {
+      class: 'meta-note',
+      text: '费用为预估值：按 models.dev 的当前单价 × 实际用量逐条计算，不含各平台的峰谷价（如 DeepSeek 高峰时段翻倍）、折扣与赠送额度，也未做汇率换算；实际扣费以各平台账单为准。',
+    }),
+  );
   return wrap;
 }
 

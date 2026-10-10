@@ -49,13 +49,7 @@
     "price": {
       "enabled": true,
       "ttlHours": 12,
-      "source": "https://models.dev/api.json",
-      "peak": {
-        "providerIds": ["deepseek"],
-        "multiplier": 2,
-        "windows": [["09:00", "12:00"], ["14:00", "18:00"]],
-        "weekdaysOnly": true
-      }
+      "source": "https://models.dev/api.json"
     }
   }
 }

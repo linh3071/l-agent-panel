@@ -8,9 +8,11 @@
 //   4. 失败退避：拉取失败后 10 分钟内不再自动重试，避免每次查询都打网络
 //   5. 单飞：同一时刻只允许一个拉取在途
 //
-// 计价口径：models.dev 的价格为「美元/百万 token」，分 input / output / cache_read / cache_write；
-// 面板记录的 input_tokens 已包含缓存读，所以未缓存输入 = input − cacheRead。
-// DeepSeek 按官方规则支持高峰时段（北京时间工作日 9-12、14-18 点）价格翻倍。
+// 计价口径：完全以 models.dev 的单价为准（美元/百万 token，分 input / output / cache_read / cache_write），
+// 乘以实际用量后逐条累加。面板记录的 input_tokens 已包含缓存读，所以未缓存输入 = input − cacheRead。
+//
+// 注意这是「预估值」：不体现各供应商的峰谷价（如 DeepSeek 高峰时段翻倍）、折扣与赠送额度，
+// 也不做汇率换算，实际扣费以各平台账单为准 —— 界面上会明确标注这一点。
 
 import { readFile, writeFile, mkdir, rename } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -33,21 +35,10 @@ const PROVIDER_ALIASES = {
   minimax: ['minimax'],
 };
 
-const DEFAULT_PEAK = {
-  providerIds: ['deepseek'], // 面板记录的 provider_id
-  multiplier: 2,
-  windows: [
-    ['09:00', '12:00'],
-    ['14:00', '18:00'],
-  ],
-  weekdaysOnly: true, // 仅工作日（法定节假日不判断，属已知近似）
-};
-
 const state = {
   dir: null,
   source: DEFAULT_SOURCE,
   ttlMs: DEFAULT_TTL_HOURS * 3_600_000,
-  peak: DEFAULT_PEAK,
   table: null, // { fetchedAt, source, providers: { providerId: { modelId: {in,out,cr,cw} } } }
   inflight: null,
   lastAttemptAt: 0,
@@ -75,14 +66,6 @@ export async function configurePrices(config = {}, baseDir) {
   if (typeof config.source === 'string' && config.source.trim()) state.source = config.source.trim();
   const ttl = Number(config.ttlHours);
   state.ttlMs = (Number.isFinite(ttl) && ttl > 0 ? ttl : DEFAULT_TTL_HOURS) * 3_600_000;
-  if (config.peak && typeof config.peak === 'object') {
-    state.peak = {
-      ...DEFAULT_PEAK,
-      ...config.peak,
-      providerIds: (Array.isArray(config.peak.providerIds) ? config.peak.providerIds : DEFAULT_PEAK.providerIds).map((p) => String(p).toLowerCase()),
-      windows: Array.isArray(config.peak.windows) && config.peak.windows.length ? config.peak.windows : DEFAULT_PEAK.windows,
-    };
-  }
   if (!state.table) await loadTable();
 }
 
@@ -248,26 +231,10 @@ function longestPrefix(models, needle) {
 
 // ---------- 计价 ----------
 
-function parseHm(value) {
-  const [h, m] = String(value).split(':').map(Number);
-  return (Number.isFinite(h) ? h : 0) * 60 + (Number.isFinite(m) ? m : 0);
-}
-
-export function isPeakTime(timeMs, peak = state.peak) {
-  const shifted = new Date(Number(timeMs) + 8 * 3_600_000); // 北京时间
-  const day = shifted.getUTCDay(); // 0=周日
-  if (peak.weekdaysOnly && (day === 0 || day === 6)) return false;
-  const minutes = shifted.getUTCHours() * 60 + shifted.getUTCMinutes();
-  return peak.windows.some(([from, to]) => minutes >= parseHm(from) && minutes < parseHm(to));
-}
-
-// 单条记录花费：返回美元金额与匹配信息
+// 单条记录花费：价格 × 实际用量。est: 预估口径说明见文件头注释
 export function costOf(record) {
   const price = matchPrice(record.model, record.provider);
-  if (!price) return { usd: 0, matched: false, multiplier: 1, peak: false, approx: false };
-
-  const peak = state.peak.providerIds.includes(String(record.provider ?? '').toLowerCase()) && isPeakTime(record.time);
-  const multiplier = peak ? Number(state.peak.multiplier) || 1 : 1;
+  if (!price) return { usd: 0, matched: false, approx: false };
 
   const inputPrice = price.in ?? 0;
   const cacheReadPrice = price.cr ?? inputPrice; // 缺 cache_read 时按普通输入价计（保守）
@@ -275,9 +242,7 @@ export function costOf(record) {
   const uncachedInput = Math.max(0, record.input - record.cacheRead);
 
   const usd =
-    ((uncachedInput * inputPrice + record.cacheRead * cacheReadPrice + record.cacheWrite * cacheWritePrice + record.output * (price.out ?? 0)) *
-      multiplier) /
-    1e6;
+    (uncachedInput * inputPrice + record.cacheRead * cacheReadPrice + record.cacheWrite * cacheWritePrice + record.output * (price.out ?? 0)) / 1e6;
 
-  return { usd, matched: true, multiplier, peak, approx: !!price.approx };
+  return { usd, matched: true, approx: !!price.approx };
 }

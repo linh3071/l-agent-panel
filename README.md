@@ -130,8 +130,11 @@ desktop/.cache/gobin/rsrc -ico desktop/logo/logo.ico -o desktop/launcher/rsrc_wi
 - 未缓存输入 = 输入总量 − 缓存读（本项目各来源的 `input_tokens` 均含缓存读）
 - 模型匹配顺序：对应 provider 内精确 → 全局精确 → 归一化（忽略大小写与分隔符）→ 最长前缀近似
   （如 `MiniMax-M2.7-highspeed` → `MiniMax-M2.7`）；未匹配的模型按 $0 计并在底部提示
-- DeepSeek 峰谷价：北京时间工作日 9:00–12:00、14:00–18:00 价格翻倍（法定节假日不判断，属已知近似），
-  可在 `config.json` 的 `usage.price.peak` 调整或关掉
+
+> **这是预估值，不是账单**：只按 models.dev 的单价 × 实际用量逐条计算，
+> **不体现各平台的峰谷价**（如 DeepSeek 高峰时段价格翻倍）、折扣与赠送额度，也未做汇率换算
+> （价格表是美元，多数平台账单是人民币）。实际扣费以各平台账单为准。
+> 界面底部价格表状态行下方会显示同样的口径说明。
 
 **更新时机**（价格可能随时变更，采用 stale-while-revalidate）：
 
