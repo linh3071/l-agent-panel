@@ -1,3 +1,5 @@
+<img src="desktop/logo/logo-256.png" width="72" alt="Agent Panel logo">
+
 # Agent Panel
 
 本地 Agent 面板网站：**限额查询** + **用量统计** 两个 Tab。
@@ -36,11 +38,20 @@
 
 | 路径 | 说明 |
 |---|---|
-| `Agent Panel.exe` | 启动器（Go 编译，GUI 子系统，无控制台窗口） |
+| `Agent Panel.exe` | 启动器（Go 编译，GUI 子系统，无控制台窗口；图标见 `desktop/logo/`） |
 | `node/node.exe` | 内置 Node 运行时，无需另装 Node.js |
 | `server/` `web/` | 面板服务与前端 |
 | `config.json` | 由项目 config.json 生成：`/mnt/c/...` 改写为 `C:\...`，`/home/...` 改写为 `\\wsl.localhost\<发行版>\...` |
 | `runtime/` | 启动日志 `launcher.log`、Edge 专用配置目录 |
+
+图标：启动器图标由 `desktop/logo/logo.ico` 经 `rsrc` 编译成 `desktop/launcher/rsrc_windows_amd64.syso`
+（已入库，go build 会自动链接）；窗口/任务栏图标来自页面 `web/favicon.ico`。改动 logo 后重新生成：
+
+```bash
+/tmp/imgvenv/bin/python desktop/make-logo.py                       # 重新生成 ico / svg / png
+desktop/.cache/gobin/rsrc -ico desktop/logo/logo.ico \
+  -o desktop/launcher/rsrc_windows_amd64.syso                      # 重新生成 exe 图标资源
+```
 
 实现要点：
 

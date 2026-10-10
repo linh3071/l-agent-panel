@@ -37,9 +37,10 @@ body {
   z-index: 10;
 }
 
-.topbar-title { display: flex; align-items: baseline; gap: 12px; }
+.topbar-title { display: flex; align-items: center; gap: 10px; }
 .topbar-title h1 { font-size: 18px; margin: 0; color: var(--text); }
-.topbar-sub { color: var(--text-faint); font-size: 12px; }
+.topbar-title .brand-logo { width: 26px; height: 26px; border-radius: 7px; display: block; flex: none; }
+.topbar-sub { color: var(--text-faint); font-size: 12px; margin-left: 2px; }
 
 .tabs { display: flex; gap: 4px; background: var(--bg-layer-2); padding: 4px; border-radius: var(--radius); }
 .tab {

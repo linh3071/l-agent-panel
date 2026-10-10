@@ -61,7 +61,7 @@ async function readBody(request) {
 // 静态资源版本号：基于文件 mtime，内容变化时 URL 随之变化，避免浏览器旧缓存
 async function assetVersion() {
   const parts = [];
-  for (const name of ['style.css', 'app.js']) {
+  for (const name of ['style.css', 'app.js', 'logo.svg']) {
     try {
       parts.push(String((await stat(join(WEB_DIR, name))).mtimeMs));
     } catch {
@@ -85,7 +85,7 @@ async function serveStatic(request, response, pathname) {
     let content = await readFile(filePath);
     if (relative === 'index.html') {
       const version = await assetVersion();
-      content = Buffer.from(content.toString('utf8').replace(/((?:href|src)="\/(?:style\.css|app\.js))"/g, `$1?v=${version}"`));
+      content = Buffer.from(content.toString('utf8').replace(/((?:href|src)="\/(?:style\.css|app\.js|logo\.svg))"/g, `$1?v=${version}"`));
       response.writeHead(200, {
         'Content-Type': MIME['.html'],
         'Cache-Control': 'no-store',

@@ -317,30 +317,26 @@ function renderUsage() {
   if (!data) return;
   const totals = data.totals ?? {};
 
-  // 汇总卡片
-  // 口径：zcode/codex 的 input_tokens 均已包含缓存读，缓存命中率 = cacheRead / input
+  // 汇总卡片（固定 8 个）：请求数 / 会话数 / 总 Token / 预估费用 / 输入 / 输出 / 缓存 / 缓存命中率
+  // 口径：zcode/codex 的 input_tokens 均已包含缓存读，所以「输入」为未缓存部分、命中率 = cacheRead / input
   const cacheDenom = totals.input;
   const cacheHit = cacheDenom > 0 ? (totals.cacheRead / cacheDenom) * 100 : null;
   const uncachedInput = Math.max(0, totals.input - totals.cacheRead);
+  const price = data.meta?.price;
   const cards = [
     { label: '请求数', value: fmtInt(totals.requests) },
     { label: '会话数', value: fmtInt(totals.sessions) },
-    { label: '缓存命中率', value: fmtPct(cacheHit), sub: 'cacheRead / 输入总量（输入已含缓存读）' },
-    { label: '总 Tokens', value: fmtTokens(totals.total) },
-    { label: '输入（未缓存）', value: fmtTokens(uncachedInput), sub: '输入总量 − 缓存读' },
-    { label: '输出', value: fmtTokens(totals.output) },
-    { label: '缓存读', value: fmtTokens(totals.cacheRead) },
-    { label: '缓存写', value: fmtTokens(totals.cacheWrite) },
-  ];
-  // 预估费用（价格表可用或已配置时展示）
-  const price = data.meta?.price;
-  if (price) {
-    cards.push({
+    { label: '总 Token', value: fmtTokens(totals.total) },
+    {
       label: '预估费用',
-      value: price.available ? fmtCost(totals.cost) : '—',
-      sub: price.available ? '按 models.dev 价格表估算（USD）' : '价格表不可用',
-    });
-  }
+      value: price?.available ? fmtCost(totals.cost) : '—',
+      sub: price ? (price.available ? '按 models.dev 价格表估算（USD）' : '价格表不可用') : '未启用价格估算',
+    },
+    { label: '输入', value: fmtTokens(uncachedInput), sub: '未缓存（输入总量 − 缓存读）' },
+    { label: '输出', value: fmtTokens(totals.output) },
+    { label: '缓存', value: fmtTokens(totals.cacheRead), sub: `缓存写 ${fmtTokens(totals.cacheWrite)}` },
+    { label: '缓存命中率', value: fmtPct(cacheHit), sub: 'cacheRead / 输入总量' },
+  ];
   const summary = $('#usage-summary');
   summary.replaceChildren();
   for (const card of cards) {
