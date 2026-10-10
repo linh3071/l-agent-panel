@@ -49,6 +49,21 @@
         "name": "Claude Code",
         "type": "claude",
         "path": "/home/joint/.claude"
+      },
+      {
+        "name": "OpenCode",
+        "type": "opencode",
+        "path": "/home/joint/.local/share/opencode"
+      },
+      {
+        "name": "pi",
+        "type": "pi",
+        "path": "/home/joint/.pi/agent"
+      },
+      {
+        "name": "dsh",
+        "type": "dsh",
+        "path": "/home/joint/.dsh"
       }
     ],
     "price": {

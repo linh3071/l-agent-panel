@@ -88,11 +88,14 @@ desktop/.cache/gobin/rsrc -ico desktop/logo/logo.ico -o desktop/launcher/rsrc_wi
   },
   "usage": {
     "agents": [
-      // type 支持：zcode | codex | claude；name 即统计时的 Agent 名（可随意改）
+      // type 支持：zcode | codex | claude | opencode | pi | dsh；name 即统计时的 Agent 名（可随意改）
       { "name": "ZCode (Windows)", "type": "zcode", "path": "/mnt/c/Users/joint/.zcode" },
       { "name": "ZCode (WSL)", "type": "zcode", "path": "/home/joint/.zcode" },
       { "name": "Codex (WSL)", "type": "codex", "path": "/home/joint/.codex" },
-      { "name": "Claude Code", "type": "claude", "path": "/home/joint/.claude" }
+      { "name": "Claude Code", "type": "claude", "path": "/home/joint/.claude" },
+      { "name": "OpenCode", "type": "opencode", "path": "/home/joint/.local/share/opencode" },
+      { "name": "pi", "type": "pi", "path": "/home/joint/.pi/agent" },
+      { "name": "dsh", "type": "dsh", "path": "/home/joint/.dsh" }
     ]
   }
 }
@@ -157,6 +160,9 @@ desktop/.cache/gobin/rsrc -ico desktop/logo/logo.ico -o desktop/launcher/rsrc_wi
 | `zcode` | `{path}/cli/db/db.sqlite` 的 `model_usage` 表（每请求一条：模型、token 明细、时间戳）。Windows 挂载（/mnt/c）打开失败时自动复制到临时目录再读 |
 | `codex` | `{path}/state_5.sqlite` 的 `threads` 表（会话级兜底）+ `{path}/sessions/**/rollout-*.jsonl` 中的 `token_count` 事件（逐请求明细） |
 | `claude` | `{path}/projects/<项目>/<会话>.jsonl` 中 `type=assistant` 事件的 `message.usage`（逐请求明细），`<会话>/subagents/*.jsonl` 的子代理用量一并统计。`path` 也可直接指向 `projects` 目录 |
+| `opencode` | `{path}/opencode.db`（SQLite）`session_message` 表的逐消息用量；缺少该表/库时退回 `{path}/storage/message/<会话>/<消息>.json`（旧版文件存储） |
+| `pi` | `{path}/sessions/<项目>/agent_<会话>.jsonl` 的 assistant 条目用量；`subagent-artifacts/` 下的派生副本跳过 |
+| `dsh` | `{path}/sessions/<项目>/<会话>/session.v4.jsonl.zstd`（Zstandard 压缩 JSONL）中 `assistant/message` 事件的 `data.usage` |
 
 说明：
 
@@ -167,7 +173,15 @@ desktop/.cache/gobin/rsrc -ico desktop/logo/logo.ico -o desktop/launcher/rsrc_wi
   `input = input_tokens + cache_read`、`total = input + cache_creation + output`；
   同一 `message.id` 只计一次（sidechain 回放会重复记录同一条响应），
   `isApiErrorMessage` 与 `<synthetic>` 条目跳过；会话标题取 `summary` 行
-- 会话文件同样按 `(mtime, size)` 缓存，只有新增/修改过的文件才会重新解析
+- OpenCode：`tokens.input` 同样不含缓存读（已换算）；同一消息 id 只计一次；
+  其自带的 `cost` 字段忽略不用（费用统一按 models.dev 单价计算）
+- pi：条目是带 `id` / `parentId` 的树形结构，编辑或重试留下的旁支也是真实发生过的调用、**全部计入**；
+  `parentSession` 指向父会话时，子会话开头重复的父会话历史按签名前缀比对后跳过（不与父会话重复计数）；
+  条目 id 跨文件去重
+- dsh：会话日志是 Zstandard 多帧压缩，逐帧解压（写入中的半截帧自动跳过）；
+  `inputTokens` 为未缓存部分（已换算）；未上报 usage 的结算按固定 4 字符/token 启发式估算输出
+  （与 dsh-usage-stats 参考实现一致）；标题生成与搜索改写的辅助请求只计数、不计入主统计
+- 所有文件型来源都按 `(mtime, size)` 缓存，只有新增/修改过的文件才会重新解析
 
 ## API
 
