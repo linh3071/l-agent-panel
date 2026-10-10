@@ -45,12 +45,19 @@
 | `runtime/` | 启动日志 `launcher.log`、Edge 专用配置目录 |
 
 图标：启动器图标由 `desktop/logo/logo.ico` 经 `rsrc` 编译成 `desktop/launcher/rsrc_windows_amd64.syso`
-（已入库，go build 会自动链接）；窗口/任务栏图标来自页面 `web/favicon.ico`。改动 logo 后重新生成：
+（已入库，`go build` 会自动链接）；窗口/任务栏图标来自页面 `web/favicon.ico`。改动 logo 后重新生成：
 
 ```bash
-/tmp/imgvenv/bin/python desktop/make-logo.py                       # 重新生成 ico / svg / png
-desktop/.cache/gobin/rsrc -ico desktop/logo/logo.ico \
-  -o desktop/launcher/rsrc_windows_amd64.syso                      # 重新生成 exe 图标资源
+# 首次：安装依赖（Pillow 用于画图，rsrc 用于生成 exe 图标资源）
+python3 -m venv /tmp/imgvenv && /tmp/imgvenv/bin/pip install pillow
+GOBIN="$PWD/desktop/.cache/gobin" desktop/.cache/go-1.24.5/bin/go install github.com/akavel/rsrc@latest
+
+# 重新生成 favicon.ico / logo.svg / logo-256.png / logo.ico
+/tmp/imgvenv/bin/python desktop/make-logo.py
+
+# 重新生成 exe 图标资源，然后重新打包
+desktop/.cache/gobin/rsrc -ico desktop/logo/logo.ico -o desktop/launcher/rsrc_windows_amd64.syso
+./desktop/build.sh
 ```
 
 实现要点：
