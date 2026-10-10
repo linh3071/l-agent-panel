@@ -133,6 +133,8 @@ Agent Panel 便携版
 * 额度显示"缺少 apiKey 配置"：编辑 config.json 填入对应平台的 key。
 * 用量 Tab 读不到 WSL 里的数据：确认 config.json 中路径为
   \\wsl.localhost\<发行版>\home\<用户>\... 形式，且 WSL 发行版名称正确。
+* 预估费用显示"—"或为空：费用按 models.dev 价格表估算，首次启动需联网拉取
+  （缓存在 data\prices.json，12 小时后自动后台刷新）；离线不影响额度查询与用量统计。
 * 打不开窗口：查看 runtime\launcher.log 与 logs\server.log。
 * 想换端口：修改 config.json 的 server.port（启动器会自动跟随）。
   便携版默认 8790，避免与 WSL 里的开发服务（8787）冲突。
