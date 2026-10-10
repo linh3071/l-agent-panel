@@ -12,6 +12,12 @@ const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const WEB_DIR = join(ROOT, 'web');
 const CONFIG_PATH = join(ROOT, 'config.json');
 
+// 便携版（启动器设置 AGENT_PANEL_IDLE_EXIT_SECONDS）下，页面心跳停止即视为窗口已关闭，
+// 服务端自动退出，避免驻留后台；start.sh 启动的常驻服务不设该变量，行为不变。
+const IDLE_EXIT_MS = Math.max(0, Number(process.env.AGENT_PANEL_IDLE_EXIT_SECONDS) || 0) * 1000;
+const FIRST_PING_GRACE_MS = 10 * 60_000; // 启动后一直没有任何页面连接（窗口没打开）时的兜底
+let lastPingAt = 0;
+
 const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -128,6 +134,9 @@ async function main() {
           groupBy: body.groupBy === 'model' ? 'model' : 'agent',
         });
         sendJson(response, 200, result);
+      } else if (pathname === '/api/ping') {
+        lastPingAt = Date.now();
+        sendJson(response, 200, { ok: true });
       } else if (request.method === 'GET') {
         await serveStatic(request, response, pathname);
       } else {
@@ -145,6 +154,24 @@ async function main() {
     console.log(`[agent-panel] listening on http://${host}:${port}`);
     console.log(`[agent-panel] web dir: ${WEB_DIR}`);
     console.log(`[agent-panel] config: ${CONFIG_PATH}（修改后无需重启，下次请求生效）`);
+    if (IDLE_EXIT_MS) {
+      console.log(`[agent-panel] 便携模式：页面心跳停止 ${Math.round(IDLE_EXIT_MS / 1000)}s 后自动退出`);
+      const startedAt = Date.now();
+      setInterval(() => {
+        const now = Date.now();
+        if (!lastPingAt) {
+          if (now - startedAt > FIRST_PING_GRACE_MS) {
+            console.log('[agent-panel] 启动后始终没有页面连接，自动退出');
+            process.exit(0);
+          }
+          return;
+        }
+        if (now - lastPingAt > IDLE_EXIT_MS) {
+          console.log(`[agent-panel] 页面心跳已停止 ${Math.round((now - lastPingAt) / 1000)}s，自动退出`);
+          process.exit(0);
+        }
+      }, 2000);
+    }
   });
 }
 

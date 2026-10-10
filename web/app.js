@@ -500,3 +500,8 @@ $('#usage-refresh').addEventListener('click', () => loadUsage());
 // ---------- 初始化 ----------
 
 loadQuota();
+
+// 心跳：便携版据此判断窗口是否仍在打开（关闭窗口后不再上报，服务端自动退出）
+const ping = () => fetch('/api/ping', { method: 'POST' }).catch(() => {});
+ping();
+setInterval(ping, 5000);

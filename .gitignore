@@ -14,3 +14,7 @@ logs/
 node_modules/
 .DS_Store
 Thumbs.db
+
+# 便携版产物（含本地 config.json，不入库）
+dist/
+desktop/.cache/

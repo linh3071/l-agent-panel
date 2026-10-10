@@ -22,6 +22,40 @@
 
 调试日志：`tail -f logs/server.log`
 
+## Windows 便携版（exe 绿色包）
+
+不想开终端时，可以打包成 Windows 便携版：**双击 exe 打开面板窗口，打开即自动查询额度；
+关闭窗口后所有进程退出，不驻留后台。**
+
+```bash
+./desktop/build.sh          # 构建到 dist/agent-panel-portable/
+./desktop/build.sh --zip    # 额外生成 zip
+```
+
+产物结构（约 96MB，其中主要是内置的 Node 运行时）：
+
+| 路径 | 说明 |
+|---|---|
+| `Agent Panel.exe` | 启动器（Go 编译，GUI 子系统，无控制台窗口） |
+| `node/node.exe` | 内置 Node 运行时，无需另装 Node.js |
+| `server/` `web/` | 面板服务与前端 |
+| `config.json` | 由项目 config.json 生成：`/mnt/c/...` 改写为 `C:\...`，`/home/...` 改写为 `\\wsl.localhost\<发行版>\...` |
+| `runtime/` | 启动日志 `launcher.log`、Edge 专用配置目录 |
+
+实现要点：
+
+- 界面用系统自带 Edge 的 `--app` 应用模式（独立进程 + 独立配置目录，无地址栏，不碰用户浏览器配置）；找不到 Edge 时退回默认浏览器
+- 启动器负责拉起/收尾：窗口关闭即结束 node 进程（`taskkill /T /F`）
+- **兜底**：页面每 5s 上报一次 `/api/ping` 心跳，服务端在心跳停止 `AGENT_PANEL_IDLE_EXIT_SECONDS` 秒
+  （便携版为 20s）后自行退出。因此即使启动器被强杀、浏览器崩溃或窗口被移交给别的实例，
+  也不会有残留服务进程（常驻模式 `start.sh` 不设该变量，行为不变）
+- 便携版默认端口 **8790**（避免与 WSL 中的开发服务 8787 冲突；WSL 为 mirrored 网络模式时
+  两者共享 localhost、会同端口互斥），可用 `PORT=xxxx ./desktop/build.sh` 或改 config.json 调整
+- 若已有一个面板实例在运行（含 WSL 里的开发服务），启动器只开窗不重复启动服务
+
+> 注意：便携包内的 `config.json` 含各平台 API Key，请勿直接分享整个目录；
+> 需要分享时先删除该文件（首次启动会用 `config.example.json` 重建）。
+
 ## 配置说明（config.json）
 
 ```jsonc
