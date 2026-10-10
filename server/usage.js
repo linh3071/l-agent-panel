@@ -8,6 +8,7 @@ import { copyFileSync, existsSync, readdirSync, statSync, unlinkSync } from 'nod
 import { join, dirname, basename } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
+import { configurePrices, ensureFresh, costOf, priceStatus } from './prices.js';
 
 const DAY_MS = 86_400_000;
 const HEATMAP_DAYS = 365;
@@ -68,16 +69,17 @@ function withSqlite(path, fn) {
 }
 
 function emptyTotals() {
-  return { requests: 0, input: 0, cacheRead: 0, cacheWrite: 0, output: 0, total: 0, sessions: 0 };
+  return { requests: 0, input: 0, cacheRead: 0, cacheWrite: 0, output: 0, total: 0, cost: 0, sessions: 0 };
 }
 
-function addTo(totals, record) {
+function addTo(totals, record, cost = null) {
   totals.requests += 1;
   totals.input += record.input;
   totals.cacheRead += record.cacheRead;
   totals.cacheWrite += record.cacheWrite;
   totals.output += record.output;
   totals.total += record.total;
+  if (cost?.matched) totals.cost += cost.usd;
 }
 
 // ---------- zcode 读取器 ----------
@@ -376,11 +378,25 @@ function dayIndexToDate(index) {
   }).format(new Date(index * DAY_MS - SHANGHAI_OFFSET_MS));
 }
 
-export async function queryUsage(agents, { from, to, groupBy }) {
+export async function queryUsage(agents, { from, to, groupBy, price, dir }) {
   const startedAt = Date.now();
   const errors = [];
   let auxTitle = 0;
   const records = [];
+
+  // 价格表：装载缓存并（必要时）后台刷新 —— 不阻塞本次查询，本次用已有表格计价
+  let pricing = false;
+  if (price?.enabled !== false) {
+    try {
+      await configurePrices(price ?? {}, dir);
+      ensureFresh();
+      pricing = true;
+    } catch (error) {
+      errors.push({ file: 'prices', message: `价格表初始化失败：${error.message}` });
+    }
+  }
+  const unmatched = new Map(); // 未匹配价格的模型 → 请求数
+  let approxModels = new Set(); // 前缀近似匹配到的模型
 
   for (const agent of agents) {
     const type = String(agent.type ?? '').toLowerCase();
@@ -414,7 +430,11 @@ export async function queryUsage(agents, { from, to, groupBy }) {
   let coverageTo = null;
 
   for (const record of filtered) {
-    addTo(totals, record);
+    const cost = pricing ? costOf(record) : null;
+    if (cost && !cost.matched) unmatched.set(record.model, (unmatched.get(record.model) ?? 0) + 1);
+    if (cost?.approx) approxModels.add(record.model);
+
+    addTo(totals, record, cost);
     if (coverageFrom === null || record.time < coverageFrom) coverageFrom = record.time;
     if (coverageTo === null || record.time > coverageTo) coverageTo = record.time;
 
@@ -424,7 +444,7 @@ export async function queryUsage(agents, { from, to, groupBy }) {
       group = { key: groupKey, agent: record.agent, model: record.model, ...emptyTotals() };
       groups.set(groupKey, group);
     }
-    addTo(group, record);
+    addTo(group, record, cost);
 
     if (record.sessionId) {
       const sessionKey = `${record.agent}\u0000${record.sessionId}`;
@@ -437,12 +457,14 @@ export async function queryUsage(agents, { from, to, groupBy }) {
           title: record.title || '',
           requests: 0,
           total: 0,
+          cost: 0,
           models: new Map(),
         };
         sessions.set(sessionKey, session);
       }
       session.requests += 1;
       session.total += record.total;
+      if (cost?.matched) session.cost += cost.usd;
       session.models.set(record.model, (session.models.get(record.model) ?? 0) + record.total);
       if (!session.project && record.project) session.project = record.project;
       if (!session.title && record.title) session.title = record.title;
@@ -481,6 +503,7 @@ export async function queryUsage(agents, { from, to, groupBy }) {
         model: bestModel,
         requests: session.requests,
         total: session.total,
+        cost: session.cost,
       };
     })
     .sort((a, b) => b.total - a.total)
@@ -501,6 +524,16 @@ export async function queryUsage(agents, { from, to, groupBy }) {
       coverage: { from: coverageFrom, to: coverageTo },
       aux: { titleRequests: auxTitle },
       recordCount: filtered.length,
+      price: pricing
+        ? {
+            ...priceStatus(),
+            unmatched: [...unmatched.entries()]
+              .sort((a, b) => b[1] - a[1])
+              .slice(0, 8)
+              .map(([model, requests]) => ({ model, requests })),
+            approx: [...approxModels].slice(0, 8),
+          }
+        : null,
     },
   };
 }

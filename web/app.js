@@ -26,6 +26,15 @@ function fmtPct(value) {
   return `${Math.round(n)}%`;
 }
 
+// 费用（美元）：小额保留更多小数，避免显示成 $0.00
+function fmtCost(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return '-';
+  if (n >= 100) return `$${n.toFixed(0)}`;
+  if (n >= 1) return `$${n.toFixed(2)}`;
+  return `$${n.toFixed(3)}`;
+}
+
 function fmtTime(epochMs) {
   if (!Number.isFinite(epochMs)) return '-';
   return new Intl.DateTimeFormat('zh-CN', {
@@ -323,6 +332,15 @@ function renderUsage() {
     { label: '缓存读', value: fmtTokens(totals.cacheRead) },
     { label: '缓存写', value: fmtTokens(totals.cacheWrite) },
   ];
+  // 预估费用（价格表可用或已配置时展示）
+  const price = data.meta?.price;
+  if (price) {
+    cards.push({
+      label: '预估费用',
+      value: price.available ? fmtCost(totals.cost) : '—',
+      sub: price.available ? '按 models.dev 价格表估算（USD）' : '价格表不可用',
+    });
+  }
   const summary = $('#usage-summary');
   summary.replaceChildren();
   for (const card of cards) {
@@ -342,6 +360,7 @@ function renderUsage() {
     el('th', { class: 'num', text: '缓存写' }),
     el('th', { class: 'num', text: '输出' }),
     el('th', { class: 'num', text: '总 Tokens' }),
+    el('th', { class: 'num', text: '费用' }),
     el('th', { text: '占比' }),
   );
   const groupsBody = $('#usage-groups-body');
@@ -352,6 +371,7 @@ function renderUsage() {
     for (const value of [group.requests, group.input, group.cacheRead, group.cacheWrite, group.output, group.total]) {
       tr.append(el('td', { class: 'num', text: value >= 10000 ? fmtTokens(value) : fmtInt(value) }));
     }
+    tr.append(el('td', { class: 'num', text: fmtCost(group.cost) }));
     const sharePct = Math.round((group.share ?? 0) * 100);
     // 灰色轨道按 100% 刻度，填充宽度即真实占比
     tr.append(
@@ -388,6 +408,7 @@ function renderUsage() {
         el('td', { text: session.model || '-' }),
         el('td', { class: 'num', text: fmtInt(session.requests) }),
         el('td', { class: 'num', text: fmtTokens(session.total) }),
+        el('td', { class: 'num', text: fmtCost(session.cost) }),
       ),
     );
   });
@@ -407,7 +428,52 @@ function renderUsage() {
   }
   const metaNode = $('#usage-meta');
   metaNode.replaceChildren(...lines.map((line) => el('div', { text: line })));
+  if (price) metaNode.append(renderPriceLine(price));
   metaNode.classList.remove('hidden');
+}
+
+// 价格表状态行：更新时间 / TTL / 未匹配模型提示 / 手动刷新按钮
+function renderPriceLine(price) {
+  const wrap = el('div', { class: 'meta-price' });
+  if (!price.available) {
+    wrap.append(el('span', { text: price.lastError ? `价格表不可用：${price.lastError}` : '价格表暂不可用（正在拉取…）' }));
+  } else {
+    const parts = [
+      `价格表：更新于 ${fmtTime(price.fetchedAt)}`,
+      `TTL ${price.ttlHours}h${price.stale ? '（已过期，后台刷新中）' : ''}`,
+      `${fmtInt(price.modelCount)} 个模型`,
+      '来源 models.dev',
+    ];
+    wrap.append(el('span', { text: parts.join(' · ') }));
+  }
+  if (price.lastError && price.available) {
+    wrap.append(el('span', { class: 'meta-warn', text: `⚠ 上次刷新失败：${price.lastError}` }));
+  }
+  if (price.unmatched?.length) {
+    wrap.append(
+      el('span', {
+        class: 'meta-warn',
+        text: `⚠ 未匹配价格（按 $0 计）：${price.unmatched.map((item) => `${item.model}（${fmtInt(item.requests)} 次）`).join('、')}`,
+      }),
+    );
+  }
+  if (price.approx?.length) {
+    wrap.append(el('span', { class: 'meta-warn', text: `注：${price.approx.join('、')} 为前缀近似匹配（价格可能略有差异）` }));
+  }
+  const button = el('button', { class: 'btn tiny', text: price.refreshing ? '刷新中…' : '刷新价格' });
+  if (price.refreshing) button.disabled = true;
+  button.addEventListener('click', async () => {
+    button.disabled = true;
+    button.textContent = '刷新中…';
+    try {
+      await postJson('/api/price/refresh', {});
+    } catch {
+      // 失败时重新查询，meta 中会显示 lastError
+    }
+    loadUsage();
+  });
+  wrap.append(button);
+  return wrap;
 }
 
 function renderHeatmap(days) {

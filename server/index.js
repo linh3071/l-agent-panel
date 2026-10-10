@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { queryQuota } from './quota.js';
 import { queryUsage } from './usage.js';
+import { configurePrices, ensureFresh, priceStatus, refreshPrices } from './prices.js';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const WEB_DIR = join(ROOT, 'web');
@@ -132,8 +133,14 @@ async function main() {
           from: body.from,
           to: body.to,
           groupBy: body.groupBy === 'model' ? 'model' : 'agent',
+          price: live.usage?.price,
+          dir: ROOT,
         });
         sendJson(response, 200, result);
+      } else if (request.method === 'POST' && pathname === '/api/price/refresh') {
+        const live = await loadConfig();
+        await configurePrices(live.usage?.price ?? {}, ROOT);
+        sendJson(response, 200, await refreshPrices({ force: true }));
       } else if (pathname === '/api/ping') {
         lastPingAt = Date.now();
         sendJson(response, 200, { ok: true });
@@ -154,6 +161,16 @@ async function main() {
     console.log(`[agent-panel] listening on http://${host}:${port}`);
     console.log(`[agent-panel] web dir: ${WEB_DIR}`);
     console.log(`[agent-panel] config: ${CONFIG_PATH}（修改后无需重启，下次请求生效）`);
+
+    // 价格表预热：缓存缺失或超过 TTL 时后台拉取，不阻塞启动
+    configurePrices(config.usage?.price ?? {}, ROOT)
+      .then(() => ensureFresh())
+      .then(() => {
+        const status = priceStatus();
+        console.log(`[agent-panel] 价格表：${status.available ? `已装载 ${status.modelCount} 个模型，更新于 ${new Date(status.fetchedAt).toLocaleString('zh-CN')}${status.stale ? '（已过期，后台刷新中）' : ''}` : '暂不可用（后台拉取中）'}`);
+      })
+      .catch((error) => console.error('[agent-panel] 价格表预热失败：', error?.message ?? error));
+
     if (IDLE_EXIT_MS) {
       console.log(`[agent-panel] 便携模式：页面心跳停止 ${Math.round(IDLE_EXIT_MS / 1000)}s 后自动退出`);
       const startedAt = Date.now();

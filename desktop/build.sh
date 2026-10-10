@@ -150,17 +150,17 @@ ls -1 "$DIST"
 
 if [ "${1:-}" = "--zip" ] || [ "${1:-}" = "--release" ]; then
   ZIP_OUT="$ROOT/dist/agent-panel-portable.zip"
-  log "打包 zip：$ZIP_OUT（不含 config.json / runtime / logs，可直接发布）"
+  log "打包 zip：$ZIP_OUT（不含 config.json / runtime / logs / data，可直接发布）"
   rm -f "$ZIP_OUT"
   if command -v zip >/dev/null 2>&1; then
     (cd "$ROOT/dist" && zip -qr "$ZIP_OUT" agent-panel-portable \
-      -x 'agent-panel-portable/config.json' 'agent-panel-portable/runtime/*' 'agent-panel-portable/logs/*')
+      -x 'agent-panel-portable/config.json' 'agent-panel-portable/runtime/*' 'agent-panel-portable/logs/*' 'agent-panel-portable/data/*')
   else
     # 无 zip 命令时用 python 打包（保留目录结构，排除本地敏感/运行时文件）
     python3 - "$ROOT/dist" "$ZIP_OUT" <<'PY'
 import os, sys, zipfile
 dist, out = sys.argv[1], sys.argv[2]
-EXCLUDE_DIRS = {'runtime', 'logs'}
+EXCLUDE_DIRS = {'runtime', 'logs', 'data'}
 EXCLUDE_FILES = {'config.json'}
 with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED) as z:
     for root, dirs, files in os.walk(os.path.join(dist, 'agent-panel-portable')):
@@ -178,7 +178,7 @@ PY
 import sys, zipfile
 names = zipfile.ZipFile(sys.argv[1]).namelist()
 print(f"  共 {len(names)} 个条目")
-bad = [n for n in names if n.endswith('config.json') or '/runtime/' in n or '/logs/' in n]
-print("  !! 含本地敏感文件：" + str(bad) if bad else "  ✓ 未包含 config.json / runtime / logs")
+bad = [n for n in names if n.endswith('config.json') or '/runtime/' in n or '/logs/' in n or '/data/' in n]
+print("  !! 含本地敏感文件：" + str(bad) if bad else "  ✓ 未包含 config.json / runtime / logs / data")
 PY
 fi

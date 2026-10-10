@@ -99,9 +99,34 @@
 按 **Agent**（config 中的 `name`，WSL 与 Windows 视为两个 Agent）或**模型**分组，支持 今天 / 7 天 / 30 天 / 自定义 时间范围：
 
 - 汇总卡片（一行 4 个）：请求数、会话数、缓存命中率、总 Tokens、输入/输出、缓存读/写
+- **预估费用**：汇总卡片 + 分组表格 + 会话 Top 10 各有一列费用（美元，按 models.dev 价格表估算，见下）
 - 分组表格与占比进度条
 - 近 365 天 GitHub 风格热力图（UTC+8 日切分，置顶显示、含月份/周坐标轴，不受筛选条件影响）
-- 会话 Top 10（Agent、标题、项目、主模型、请求数、Tokens）
+- 会话 Top 10（Agent、标题、项目、主模型、请求数、Tokens、费用）
+
+### 预估费用与价格表
+
+价格来自 [models.dev](https://models.dev)（`api.json`，含 input / output / cache_read / cache_write 四个价位，
+美元/百万 token），逐条请求计价后累加：
+
+- 未缓存输入 = 输入总量 − 缓存读（本项目各来源的 `input_tokens` 均含缓存读）
+- 模型匹配顺序：对应 provider 内精确 → 全局精确 → 归一化（忽略大小写与分隔符）→ 最长前缀近似
+  （如 `MiniMax-M2.7-highspeed` → `MiniMax-M2.7`）；未匹配的模型按 $0 计并在底部提示
+- DeepSeek 峰谷价：北京时间工作日 9:00–12:00、14:00–18:00 价格翻倍（法定节假日不判断，属已知近似），
+  可在 `config.json` 的 `usage.price.peak` 调整或关掉
+
+**更新时机**（价格可能随时变更，采用 stale-while-revalidate）：
+
+| 时机 | 行为 |
+|---|---|
+| 服务启动 | 缓存缺失或超过 TTL（默认 12h）→ 后台拉取，不阻塞启动 |
+| 每次用量查询 | 同样判断；过期则后台刷新 —— **本次查询用旧表、下次查询用新表，查询永不被网络阻塞** |
+| 手动 | 用量 Tab 底部「刷新价格」按钮 → `POST /api/price/refresh` 强制拉取 |
+| 拉取失败 | 保留旧表继续计价，错误显示在底部，且 10 分钟内不自动重试（避免每次查询都打网络） |
+| 并发 | 同一时刻只允许一个拉取在途（单飞） |
+
+缓存落在 `data/prices.json`（原子写入，避免读到半截文件）。配置见 `config.example.json` 的 `usage.price`，
+`enabled: false` 可完全关闭费用估算。
 
 ### 数据来源
 
@@ -121,6 +146,8 @@
 ```
 POST /api/quota/query   { "key": "deepseek" }   # key 省略则查询全部
 POST /api/usage/query   { "from": 0, "to": 0, "groupBy": "agent" | "model" }
+POST /api/price/refresh                          # 强制刷新价格表，返回最新状态
+GET  /api/ping                                   # 心跳（便携版据此判断窗口是否关闭）
 ```
 
 时间戳为毫秒，`from` 闭区间、`to` 开区间。
