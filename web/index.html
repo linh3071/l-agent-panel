@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agent Panel</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-title">
+      <h1>Agent Panel</h1>
+      <span class="topbar-sub">限额与用量面板</span>
+    </div>
+    <nav class="tabs" id="tabs">
+      <button class="tab active" data-tab="quota">限额</button>
+      <button class="tab" data-tab="usage">用量</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- 限额 Tab -->
+    <section id="panel-quota" class="panel active">
+      <div class="panel-toolbar">
+        <span class="panel-hint">DeepSeek / MiniMax / GLM / Sub2API 账户额度</span>
+        <button id="quota-refresh" class="btn primary">全部刷新</button>
+      </div>
+      <div id="quota-status" class="status-line hidden"></div>
+      <div id="quota-cards" class="card-list"></div>
+    </section>
+
+    <!-- 用量 Tab -->
+    <section id="panel-usage" class="panel">
+      <div id="usage-heatmap-wrap" class="block heatmap-block">
+        <h2>近 365 天用量 <span class="h2-hint">（不受下方筛选影响）</span></h2>
+        <div id="heatmap-area" class="heatmap-area hidden">
+          <div id="heat-months" class="heat-months"></div>
+          <div class="heat-body">
+            <div id="heat-yaxis" class="heat-yaxis"></div>
+            <div id="heatmap" class="heatmap"></div>
+          </div>
+          <div class="heatmap-legend">
+            <span>少</span>
+            <span class="heat-cell heatLevel0"></span>
+            <span class="heat-cell heatLevel1"></span>
+            <span class="heat-cell heatLevel2"></span>
+            <span class="heat-cell heatLevel3"></span>
+            <span class="heat-cell heatLevel4"></span>
+            <span>多</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel-toolbar">
+        <div class="seg" id="usage-group">
+          <button class="seg-item active" data-group="agent">按 Agent</button>
+          <button class="seg-item" data-group="model">按模型</button>
+        </div>
+        <div class="seg" id="usage-range">
+          <button class="seg-item active" data-range="today">今天</button>
+          <button class="seg-item" data-range="7d">7 天</button>
+          <button class="seg-item" data-range="30d">30 天</button>
+          <button class="seg-item" data-range="custom">自定义</button>
+        </div>
+        <div id="usage-custom" class="custom-range hidden">
+          <input type="date" id="usage-from" aria-label="开始日期">
+          <span>～</span>
+          <input type="date" id="usage-to" aria-label="结束日期">
+          <button id="usage-apply" class="btn">应用</button>
+        </div>
+        <button id="usage-refresh" class="btn primary">刷新</button>
+      </div>
+
+      <div id="usage-status" class="status-line hidden"></div>
+
+      <div id="usage-summary" class="summary-grid"></div>
+
+      <div id="usage-groups-wrap" class="block hidden">
+        <h2 id="usage-groups-title">分组统计</h2>
+        <div class="table-wrap">
+          <table class="data-table" id="usage-groups-table">
+            <thead><tr id="usage-groups-head"></tr></thead>
+            <tbody id="usage-groups-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="usage-sessions-wrap" class="block hidden">
+        <h2>会话 Top 10</h2>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>#</th><th>Agent</th><th>标题</th><th>项目</th><th>主模型</th>
+                <th class="num">请求数</th><th class="num">Tokens</th>
+              </tr>
+            </thead>
+            <tbody id="usage-sessions-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="usage-meta" class="meta-line hidden"></div>
+    </section>
+  </main>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

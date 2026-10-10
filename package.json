@@ -1,0 +1,13 @@
+{
+  "name": "agent-panel",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Local agent panel: provider quota dashboard + usage stats",
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "scripts": {
+    "start": "NODE_USE_ENV_PROXY=1 node server/index.js"
+  }
+}

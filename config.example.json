@@ -1,0 +1,50 @@
+{
+  "server": {
+    "host": "127.0.0.1",
+    "port": 8787
+  },
+  "quota": {
+    "providers": [
+      {
+        "id": "deepseek",
+        "platform": "deepseek",
+        "apiKey": "<DEEPSEEK_API_KEY>"
+      },
+      {
+        "id": "glm",
+        "platform": "glm",
+        "apiKey": "<GLM_API_KEY>"
+      },
+      {
+        "id": "minimax",
+        "platform": "minimax",
+        "apiKey": "<MINIMAX_API_KEY>"
+      },
+      {
+        "id": "sub2api",
+        "platform": "sub2api",
+        "baseURL": "https://your-sub2api-host",
+        "apiKey": "<SUB2API_TOKEN>"
+      }
+    ]
+  },
+  "usage": {
+    "agents": [
+      {
+        "name": "ZCode (Windows)",
+        "type": "zcode",
+        "path": "/mnt/c/Users/joint/.zcode"
+      },
+      {
+        "name": "ZCode (WSL)",
+        "type": "zcode",
+        "path": "/home/joint/.zcode"
+      },
+      {
+        "name": "Codex (WSL)",
+        "type": "codex",
+        "path": "/home/joint/.codex"
+      }
+    ]
+  }
+}
